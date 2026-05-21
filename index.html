@@ -1,0 +1,872 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>나의 용돈기입장</title>
+    <style>
+      /* =========================
+         나의 용돈기입장 (교육용 초안)
+         - HTML/CSS/JS만 사용
+         - localStorage로 자동 저장
+         ========================= */
+
+      :root {
+        /* 파스텔톤 색상 (원하는 대로 수정 가능) */
+        --bg: #f6f8ff;
+        --card: #ffffff;
+        --text: #1f2a37;
+        --muted: #6b7280;
+        --line: #e5e7eb;
+
+        --income: #2b7fff; /* 수입(파란 계열) */
+        --expense: #ff5a7a; /* 지출(빨간 계열) */
+
+        --primary: #6d5efc; /* 주요 버튼 */
+        --primary-weak: #f0efff;
+
+        --shadow: 0 10px 30px rgba(17, 24, 39, 0.08);
+        --radius: 18px;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial,
+          "Apple SD Gothic Neo", "Noto Sans KR", "Malgun Gothic", sans-serif;
+        color: var(--text);
+        background: radial-gradient(
+            1200px 500px at 10% 0%,
+            #ffeef5 0%,
+            transparent 55%
+          ),
+          radial-gradient(900px 500px at 90% 10%, #eef6ff 0%, transparent 55%),
+          var(--bg);
+      }
+
+      .container {
+        width: min(980px, 100%);
+        margin: 0 auto;
+        padding: 18px 14px 34px;
+      }
+
+      header {
+        padding: 12px 6px 8px;
+      }
+
+      h1 {
+        margin: 14px 0 6px;
+        font-size: clamp(22px, 4.2vw, 34px);
+        letter-spacing: -0.02em;
+      }
+
+      .subtitle {
+        margin: 0 0 10px;
+        color: var(--muted);
+        font-size: clamp(13px, 2.9vw, 16px);
+      }
+
+      .grid-3 {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 12px;
+        margin: 14px 0 14px;
+      }
+
+      .card {
+        background: var(--card);
+        border: 1px solid rgba(229, 231, 235, 0.9);
+        border-radius: var(--radius);
+        box-shadow: var(--shadow);
+      }
+
+      .summary {
+        padding: 14px 14px;
+        position: relative;
+        overflow: hidden;
+      }
+
+      .summary .label {
+        font-size: 13px;
+        color: var(--muted);
+        margin-bottom: 8px;
+      }
+
+      .summary .value {
+        font-weight: 800;
+        font-size: clamp(18px, 3.2vw, 26px);
+        letter-spacing: -0.02em;
+      }
+
+      .badge {
+        position: absolute;
+        top: 12px;
+        right: 12px;
+        font-size: 12px;
+        padding: 6px 10px;
+        border-radius: 999px;
+        border: 1px solid var(--line);
+        background: #fafafa;
+        color: var(--muted);
+      }
+
+      .badge.income {
+        border-color: rgba(43, 127, 255, 0.25);
+        background: rgba(43, 127, 255, 0.08);
+        color: #1d5fd1;
+      }
+
+      .badge.expense {
+        border-color: rgba(255, 90, 122, 0.25);
+        background: rgba(255, 90, 122, 0.08);
+        color: #c73a56;
+      }
+
+      .badge.balance {
+        border-color: rgba(109, 94, 252, 0.25);
+        background: rgba(109, 94, 252, 0.08);
+        color: #4a3fe0;
+      }
+
+      .panel {
+        padding: 14px;
+        margin: 14px 0;
+      }
+
+      .panel-title {
+        font-weight: 800;
+        margin: 2px 0 12px;
+        letter-spacing: -0.01em;
+      }
+
+      .form-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 12px;
+      }
+
+      .form-grid .span-2 {
+        grid-column: span 2;
+      }
+
+      label {
+        display: block;
+        font-size: 12px;
+        color: var(--muted);
+        margin-bottom: 6px;
+      }
+
+      input,
+      select,
+      textarea {
+        width: 100%;
+        padding: 11px 12px;
+        border-radius: 14px;
+        border: 1px solid var(--line);
+        background: #ffffff;
+        outline: none;
+        font-size: 14px;
+        transition: transform 0.05s ease, border-color 0.15s ease,
+          box-shadow 0.15s ease;
+      }
+
+      textarea {
+        min-height: 84px;
+        resize: vertical;
+      }
+
+      input:focus,
+      select:focus,
+      textarea:focus {
+        border-color: rgba(109, 94, 252, 0.5);
+        box-shadow: 0 0 0 4px rgba(109, 94, 252, 0.12);
+      }
+
+      .row {
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+        align-items: center;
+        justify-content: space-between;
+      }
+
+      .helper {
+        font-size: 12px;
+        color: var(--muted);
+        margin-top: 10px;
+        line-height: 1.5;
+      }
+
+      .btn {
+        border: 0;
+        cursor: pointer;
+        padding: 11px 14px;
+        border-radius: 999px;
+        font-weight: 700;
+        font-size: 14px;
+        transition: transform 0.06s ease, filter 0.15s ease,
+          box-shadow 0.15s ease, background 0.15s ease;
+        user-select: none;
+        white-space: nowrap;
+      }
+
+      .btn:active {
+        transform: translateY(1px);
+      }
+
+      .btn-primary {
+        background: linear-gradient(135deg, #7a6bff 0%, #5a4bff 100%);
+        color: white;
+        box-shadow: 0 10px 18px rgba(90, 75, 255, 0.18);
+      }
+
+      .btn-primary:hover {
+        filter: brightness(1.03);
+      }
+
+      .btn-ghost {
+        background: var(--primary-weak);
+        color: #4a3fe0;
+        border: 1px solid rgba(109, 94, 252, 0.25);
+      }
+
+      .btn-ghost:hover {
+        background: rgba(109, 94, 252, 0.16);
+      }
+
+      .btn-danger {
+        background: rgba(255, 90, 122, 0.12);
+        color: #b91c1c;
+        border: 1px solid rgba(255, 90, 122, 0.25);
+      }
+
+      .btn-danger:hover {
+        background: rgba(255, 90, 122, 0.18);
+      }
+
+      .filters {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+        margin: 10px 0 4px;
+      }
+
+      .filter-btn {
+        background: #fff;
+        border: 1px solid var(--line);
+        color: var(--text);
+      }
+
+      .filter-btn:hover {
+        background: #fafafa;
+      }
+
+      .filter-btn.active {
+        background: rgba(109, 94, 252, 0.12);
+        border-color: rgba(109, 94, 252, 0.35);
+        color: #4a3fe0;
+      }
+
+      .table-wrap {
+        overflow: auto;
+        border-radius: var(--radius);
+        border: 1px solid rgba(229, 231, 235, 0.9);
+      }
+
+      table {
+        width: 100%;
+        border-collapse: separate;
+        border-spacing: 0;
+        min-width: 720px; /* 모바일에서 가로 스크롤 가능 */
+        background: #fff;
+      }
+
+      thead th {
+        position: sticky;
+        top: 0;
+        background: #fbfbff;
+        z-index: 1;
+        text-align: left;
+        font-size: 12px;
+        color: var(--muted);
+        padding: 12px 12px;
+        border-bottom: 1px solid var(--line);
+      }
+
+      tbody td {
+        padding: 12px 12px;
+        border-bottom: 1px solid var(--line);
+        vertical-align: top;
+        font-size: 14px;
+      }
+
+      tbody tr:hover td {
+        background: #fcfcff;
+      }
+
+      .type-pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 6px 10px;
+        border-radius: 999px;
+        font-size: 12px;
+        font-weight: 800;
+        border: 1px solid var(--line);
+        background: #fafafa;
+      }
+
+      .type-pill.income {
+        border-color: rgba(43, 127, 255, 0.25);
+        background: rgba(43, 127, 255, 0.08);
+        color: #1d5fd1;
+      }
+
+      .type-pill.expense {
+        border-color: rgba(255, 90, 122, 0.25);
+        background: rgba(255, 90, 122, 0.08);
+        color: #c73a56;
+      }
+
+      .amount {
+        font-weight: 800;
+        letter-spacing: -0.01em;
+      }
+
+      .amount.income {
+        color: #1d5fd1;
+      }
+
+      .amount.expense {
+        color: #c73a56;
+      }
+
+      .empty {
+        text-align: center;
+        color: var(--muted);
+        padding: 18px 10px;
+      }
+
+      footer {
+        margin-top: 18px;
+        text-align: center;
+        color: var(--muted);
+        font-size: 12px;
+      }
+
+      .mini {
+        font-size: 12px;
+        color: var(--muted);
+      }
+
+      /* 반응형: 화면이 좁으면 3칸 카드 -> 1칸 */
+      @media (max-width: 760px) {
+        .grid-3 {
+          grid-template-columns: 1fr;
+        }
+        .form-grid {
+          grid-template-columns: 1fr;
+        }
+        .form-grid .span-2 {
+          grid-column: auto;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <!-- 1) 제목 영역 -->
+      <header>
+        <h1>나의 용돈기입장</h1>
+        <p class="subtitle">수입과 지출을 기록하며 돈 관리 습관을 길러요</p>
+      </header>
+
+      <!-- 2) 요약 카드(총 수입/총 지출/현재 잔액) -->
+      <section class="grid-3" aria-label="요약">
+        <div class="card summary">
+          <div class="badge income">총 수입</div>
+          <div class="label">지금까지 받은 돈</div>
+          <div class="value" id="totalIncome">0원</div>
+        </div>
+        <div class="card summary">
+          <div class="badge expense">총 지출</div>
+          <div class="label">지금까지 쓴 돈</div>
+          <div class="value" id="totalExpense">0원</div>
+        </div>
+        <div class="card summary">
+          <div class="badge balance">현재 잔액</div>
+          <div class="label">총 수입 - 총 지출</div>
+          <div class="value" id="balance">0원</div>
+        </div>
+      </section>
+
+      <!-- 3) 입력 폼 -->
+      <section class="card panel" aria-label="입력 폼">
+        <div class="panel-title">기록 추가하기</div>
+        <form id="entryForm">
+          <div class="form-grid">
+            <div>
+              <label for="date">날짜</label>
+              <input id="date" type="date" />
+            </div>
+            <div>
+              <label for="type">구분</label>
+              <select id="type">
+                <option value="income">수입</option>
+                <option value="expense">지출</option>
+              </select>
+            </div>
+            <div>
+              <label for="title">항목명 (필수)</label>
+              <input
+                id="title"
+                type="text"
+                placeholder="예) 용돈 받음, 간식, 문구류"
+                maxlength="30"
+              />
+            </div>
+            <div>
+              <label for="amount">금액 (필수, 0원보다 큰 숫자)</label>
+              <input
+                id="amount"
+                type="number"
+                inputmode="numeric"
+                min="1"
+                placeholder="예) 5000"
+              />
+            </div>
+            <div class="span-2">
+              <label for="memo">메모</label>
+              <textarea
+                id="memo"
+                placeholder="예) 친구들과 분식 먹음"
+                maxlength="80"
+              ></textarea>
+            </div>
+          </div>
+
+          <div class="row" style="margin-top: 12px">
+            <div class="helper">
+              - 항목명/금액이 비어 있으면 등록되지 않아요.<br />
+              - 날짜를 선택하지 않으면 오늘 날짜로 자동 입력돼요.
+            </div>
+            <button class="btn btn-primary" type="submit">등록하기</button>
+          </div>
+        </form>
+      </section>
+
+      <!-- 4) 필터 버튼 -->
+      <section class="card panel" aria-label="필터">
+        <div class="panel-title">필터</div>
+        <div class="filters" role="tablist" aria-label="필터 버튼">
+          <button class="btn filter-btn active" type="button" data-filter="all">
+            전체 보기
+          </button>
+          <button class="btn filter-btn" type="button" data-filter="income">
+            수입만 보기
+          </button>
+          <button class="btn filter-btn" type="button" data-filter="expense">
+            지출만 보기
+          </button>
+        </div>
+        <div class="mini" id="filterHint" style="margin-top: 10px">
+          현재: 전체 보기
+        </div>
+      </section>
+
+      <!-- 5) 기록 목록 표 -->
+      <section class="card panel" aria-label="기록 목록">
+        <div class="panel-title">기록 목록</div>
+        <div class="table-wrap">
+          <table aria-label="기록 표">
+            <thead>
+              <tr>
+                <th style="width: 120px">날짜</th>
+                <th style="width: 100px">구분</th>
+                <th style="width: 180px">항목명</th>
+                <th style="width: 130px">금액</th>
+                <th>메모</th>
+                <th style="width: 110px">삭제</th>
+              </tr>
+            </thead>
+            <tbody id="entryTbody">
+              <tr id="emptyRow">
+                <td class="empty" colspan="6">아직 기록이 없어요. 먼저 등록해볼까요?</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- 6) 전체 기록 초기화 버튼 -->
+      <section class="card panel" aria-label="전체 초기화">
+        <div class="row">
+          <div>
+            <div class="panel-title" style="margin: 0">전체 기록 초기화</div>
+            <div class="mini">모든 기록을 한 번에 삭제합니다.</div>
+          </div>
+          <button id="clearAllBtn" class="btn btn-danger" type="button">
+            전체 기록 초기화
+          </button>
+        </div>
+      </section>
+
+      <!-- 7) 하단 저작권 문구 -->
+      <footer>© 2026 크레오디교육연구소</footer>
+    </div>
+
+    <script>
+      /* ============================================================
+         JavaScript (교육용)
+         - 입력/삭제/합계/필터/localStorage 저장
+         - 나중에 확장하기 쉽도록 함수 단위로 정리
+         ============================================================ */
+
+      // localStorage에 저장할 키(이 이름은 바꿔도 됩니다)
+      const STORAGE_KEY = "allowance_book_entries_v1";
+
+      // 화면 요소(HTML)를 가져옵니다.
+      const elements = {
+        form: document.getElementById("entryForm"),
+        date: document.getElementById("date"),
+        type: document.getElementById("type"),
+        title: document.getElementById("title"),
+        amount: document.getElementById("amount"),
+        memo: document.getElementById("memo"),
+        tbody: document.getElementById("entryTbody"),
+        emptyRow: document.getElementById("emptyRow"),
+        totalIncome: document.getElementById("totalIncome"),
+        totalExpense: document.getElementById("totalExpense"),
+        balance: document.getElementById("balance"),
+        clearAllBtn: document.getElementById("clearAllBtn"),
+        filterButtons: Array.from(document.querySelectorAll(".filter-btn")),
+        filterHint: document.getElementById("filterHint"),
+      };
+
+      // 앱의 데이터(기록들). 새로고침해도 유지되도록 localStorage에 저장합니다.
+      // entry 형태 예시:
+      // { id: "abc", date:"2026-05-21", type:"income|expense", title:"", amount: 5000, memo:"" }
+      let entries = [];
+
+      // 현재 필터 상태: all / income / expense
+      let currentFilter = "all";
+
+      // ---------- 유틸(도움 함수) ----------
+
+      // 오늘 날짜를 "YYYY-MM-DD" 형태로 만들기 (date input에서 쓰는 형식)
+      function getTodayISODate() {
+        const now = new Date();
+        const y = now.getFullYear();
+        const m = String(now.getMonth() + 1).padStart(2, "0");
+        const d = String(now.getDate()).padStart(2, "0");
+        return `${y}-${m}-${d}`;
+      }
+
+      // 천 단위 콤마를 넣어서 "1,234"처럼 표시
+      function formatNumberWithComma(number) {
+        return new Intl.NumberFormat("ko-KR").format(number);
+      }
+
+      // 금액을 "12,345원" 형태로 표시
+      function formatWon(number) {
+        return `${formatNumberWithComma(number)}원`;
+      }
+
+      // 간단한 id 생성(삭제할 때 특정 기록을 찾기 위해 필요)
+      function makeId() {
+        return `${Date.now()}_${Math.random().toString(16).slice(2)}`;
+      }
+
+      // ---------- localStorage ----------
+
+      function saveToStorage() {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(entries));
+      }
+
+      function loadFromStorage() {
+        try {
+          const raw = localStorage.getItem(STORAGE_KEY);
+          if (!raw) return [];
+          const parsed = JSON.parse(raw);
+          // 데이터가 배열인지 한 번 확인(안전장치)
+          return Array.isArray(parsed) ? parsed : [];
+        } catch {
+          // localStorage 데이터가 깨져있을 수도 있으니 안전하게 빈 배열로
+          return [];
+        }
+      }
+
+      // ---------- 합계 계산 ----------
+
+      function calculateTotals(list) {
+        let income = 0;
+        let expense = 0;
+        for (const entry of list) {
+          if (entry.type === "income") income += entry.amount;
+          else expense += entry.amount;
+        }
+        return { income, expense, balance: income - expense };
+      }
+
+      function renderSummary() {
+        const totals = calculateTotals(entries);
+        elements.totalIncome.textContent = formatWon(totals.income);
+        elements.totalExpense.textContent = formatWon(totals.expense);
+        elements.balance.textContent = formatWon(totals.balance);
+      }
+
+      // ---------- 화면(표) 그리기 ----------
+
+      // 현재 필터 상태에 따라 보여줄 목록 만들기
+      function getFilteredEntries() {
+        if (currentFilter === "all") return entries;
+        return entries.filter((e) => e.type === currentFilter);
+      }
+
+      let tableRenderToken = 0;
+
+      function buildEntryRow(entry) {
+        const tr = document.createElement("tr");
+
+        // 날짜
+        const tdDate = document.createElement("td");
+        tdDate.textContent = entry.date;
+
+        // 구분(수입/지출)
+        const tdType = document.createElement("td");
+        const typePill = document.createElement("span");
+        typePill.className =
+          "type-pill " + (entry.type === "income" ? "income" : "expense");
+        typePill.textContent = entry.type === "income" ? "수입" : "지출";
+        tdType.appendChild(typePill);
+
+        // 항목명
+        const tdTitle = document.createElement("td");
+        tdTitle.textContent = entry.title;
+
+        // 금액
+        const tdAmount = document.createElement("td");
+        const amountSpan = document.createElement("span");
+        amountSpan.className =
+          "amount " + (entry.type === "income" ? "income" : "expense");
+        amountSpan.textContent = formatWon(entry.amount);
+        tdAmount.appendChild(amountSpan);
+
+        // 메모
+        const tdMemo = document.createElement("td");
+        tdMemo.textContent = entry.memo || "-";
+
+        // 삭제 버튼
+        const tdDelete = document.createElement("td");
+        const deleteBtn = document.createElement("button");
+        deleteBtn.type = "button";
+        deleteBtn.className = "btn btn-ghost";
+        deleteBtn.textContent = "삭제";
+        deleteBtn.addEventListener("click", () => deleteEntry(entry.id));
+        tdDelete.appendChild(deleteBtn);
+
+        tr.appendChild(tdDate);
+        tr.appendChild(tdType);
+        tr.appendChild(tdTitle);
+        tr.appendChild(tdAmount);
+        tr.appendChild(tdMemo);
+        tr.appendChild(tdDelete);
+        return tr;
+      }
+
+      function renderTable() {
+        const myToken = ++tableRenderToken;
+        // 표를 다시 그릴 때, 기존 행들을 싹 지우고 다시 만들면 초보자에게 이해가 쉬워요.
+        // 다만 데이터가 많아지면 "한 번에 전부 렌더링"이 느려질 수 있어서, 여기서는 배치 렌더링을 합니다.
+        elements.tbody.innerHTML = "";
+
+        const list = getFilteredEntries();
+
+        // 기록이 없으면 "빈 안내" 행 보여주기
+        if (list.length === 0) {
+          const tr = document.createElement("tr");
+          const td = document.createElement("td");
+          td.className = "empty";
+          td.colSpan = 6;
+          td.textContent =
+            currentFilter === "all"
+              ? "아직 기록이 없어요. 먼저 등록해볼까요?"
+              : "이 필터에 해당하는 기록이 없어요.";
+          tr.appendChild(td);
+          elements.tbody.appendChild(tr);
+          return;
+        }
+
+        // 목록을 날짜 기준으로 정렬(최신이 위로)
+        // 확장: 나중에 "정렬" 옵션을 UI로 추가해도 좋아요.
+        const sorted = [...list].sort((a, b) => b.date.localeCompare(a.date));
+
+        const BATCH_SIZE = 200;
+        const showLoadingHint = sorted.length >= 800;
+        let index = 0;
+
+        if (showLoadingHint) {
+          const tr = document.createElement("tr");
+          const td = document.createElement("td");
+          td.className = "empty";
+          td.colSpan = 6;
+          td.textContent = "목록을 불러오는 중…";
+          tr.appendChild(td);
+          elements.tbody.appendChild(tr);
+        }
+
+        function appendBatch() {
+          if (myToken !== tableRenderToken) return;
+
+          if (showLoadingHint && index === 0) elements.tbody.innerHTML = "";
+
+          const frag = document.createDocumentFragment();
+          const end = Math.min(index + BATCH_SIZE, sorted.length);
+          for (; index < end; index++) frag.appendChild(buildEntryRow(sorted[index]));
+          elements.tbody.appendChild(frag);
+
+          if (index < sorted.length) requestAnimationFrame(appendBatch);
+        }
+
+        requestAnimationFrame(appendBatch);
+      }
+
+      // ---------- 기능: 추가/삭제/초기화 ----------
+
+      function addEntry(entry) {
+        entries.push(entry);
+        saveToStorage();
+        renderSummary();
+        renderTable();
+      }
+
+      function deleteEntry(id) {
+        entries = entries.filter((e) => e.id !== id);
+        saveToStorage();
+        renderSummary();
+        renderTable();
+      }
+
+      function clearAllEntries() {
+        entries = [];
+        saveToStorage();
+        renderSummary();
+        renderTable();
+      }
+
+      // ---------- 입력 검증(예외 처리) ----------
+
+      function validateFormInput({ title, amount }) {
+        // 항목명/금액이 비어 있으면 등록 불가
+        if (!title || title.trim().length === 0) {
+          alert("항목명을 입력해 주세요!");
+          return false;
+        }
+
+        // 금액: 0보다 큰 숫자만 가능
+        const numericAmount = Number(amount);
+        if (!Number.isFinite(numericAmount) || numericAmount <= 0) {
+          alert("금액은 0원보다 큰 숫자만 입력할 수 있어요!");
+          return false;
+        }
+
+        return true;
+      }
+
+      // 등록 후 입력창 비우기(요구사항)
+      function resetFormKeepType() {
+        // 구분(type)은 그대로 두고 싶으면 그대로 두고,
+        // 날짜는 오늘 날짜로 세팅해줍니다.
+        elements.date.value = getTodayISODate();
+        elements.title.value = "";
+        elements.amount.value = "";
+        elements.memo.value = "";
+        elements.title.focus();
+      }
+
+      // ---------- 필터 ----------
+
+      function setFilter(nextFilter) {
+        currentFilter = nextFilter;
+
+        // 버튼 active 표시 업데이트
+        for (const btn of elements.filterButtons) {
+          btn.classList.toggle("active", btn.dataset.filter === nextFilter);
+        }
+
+        // 힌트 문구
+        const label =
+          nextFilter === "all"
+            ? "전체 보기"
+            : nextFilter === "income"
+              ? "수입만 보기"
+              : "지출만 보기";
+        elements.filterHint.textContent = `현재: ${label}`;
+
+        renderTable();
+      }
+
+      // ---------- 이벤트 연결 ----------
+
+      // 폼 제출(등록하기)
+      elements.form.addEventListener("submit", (event) => {
+        event.preventDefault(); // 새로고침 방지
+
+        // 날짜를 입력하지 않으면 오늘 날짜 자동(요구사항)
+        const dateValue = elements.date.value || getTodayISODate();
+
+        const newEntry = {
+          id: makeId(),
+          date: dateValue,
+          type: elements.type.value, // income / expense
+          title: elements.title.value.trim(),
+          amount: Number(elements.amount.value),
+          memo: elements.memo.value.trim(),
+        };
+
+        // 예외 처리(유효성 검사)
+        if (!validateFormInput(newEntry)) return;
+
+        addEntry(newEntry);
+        resetFormKeepType();
+      });
+
+      // 필터 버튼 클릭
+      for (const btn of elements.filterButtons) {
+        btn.addEventListener("click", () => {
+          setFilter(btn.dataset.filter);
+        });
+      }
+
+      // 전체 초기화 버튼
+      elements.clearAllBtn.addEventListener("click", () => {
+        if (entries.length === 0) {
+          alert("삭제할 기록이 없어요!");
+          return;
+        }
+        const ok = confirm("정말로 모든 기록을 삭제할까요?");
+        if (ok) clearAllEntries();
+      });
+
+      // ---------- 앱 시작(초기화) ----------
+
+      function init() {
+        // 날짜가 비어 있으면 오늘 날짜를 기본값으로 보여주기
+        elements.date.value = getTodayISODate();
+
+        // 저장된 데이터 불러오기
+        entries = loadFromStorage();
+
+        // 첫 화면 렌더링
+        renderSummary();
+        // 첫 페인트 이후에 표를 그려서 체감 로딩을 줄입니다.
+        requestAnimationFrame(() => renderTable());
+      }
+
+      init();
+    </script>
+  </body>
+</html>
